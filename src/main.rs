@@ -1,24 +1,30 @@
+use std::io::stdin;
+
 use rodio::{OutputStream, Source};
 
-struct TripleOscillator {
-    oscillators: [WaveTableOscillator; 3],
+struct MultiOscillator {
+    oscillators: Vec<WaveTableOscillator>,
 }
 
-impl TripleOscillator {
-    fn new(oscillators: [WaveTableOscillator; 3]) -> Self {
+impl MultiOscillator {
+    fn new(oscillators: Vec<WaveTableOscillator>) -> Self {
         Self { oscillators }
     }
 }
 
-impl Iterator for TripleOscillator {
+impl Iterator for MultiOscillator {
     type Item = f32;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Some(self.oscillators[0].get_sample())
+        Some(
+            self.oscillators
+                .iter_mut()
+                .fold(0.0, |sum, i| sum + i.get_sample()),
+        )
     }
 }
 
-impl Source for TripleOscillator {
+impl Source for MultiOscillator {
     fn channels(&self) -> u16 {
         1
     }
@@ -105,20 +111,19 @@ fn main() {
         wave_table.push((2.0 * std::f32::consts::PI * n as f32 / wave_table_size as f32).sin());
     }
 
-    let mut oscillators = [
-        WaveTableOscillator::new(44100, wave_table.clone()),
-        WaveTableOscillator::new(44100, wave_table.clone()),
-        WaveTableOscillator::new(44100, wave_table.clone()),
-    ];
+    let mut oscillators: Vec<WaveTableOscillator> = Vec::new();
 
-    oscillators[0].set_frequency(220.00);
-    oscillators[1].set_frequency(440.00);
-    oscillators[2].set_frequency(110.00);
+    for freq in [660.00, 440.00, 880.00, 220.00] {
+        let mut o = WaveTableOscillator::new(44100, wave_table.clone());
+        o.set_frequency(freq);
+        oscillators.push(o);
+    }
 
-    let triple_oscillator = TripleOscillator::new(oscillators);
+    let instrument = MultiOscillator::new(oscillators);
 
     let (_stream, stream_handle) = OutputStream::try_default().unwrap();
-    let _result = stream_handle.play_raw(triple_oscillator.convert_samples());
+    let _result = stream_handle.play_raw(instrument.convert_samples());
 
-    std::thread::sleep(std::time::Duration::from_secs(5));
+    let mut _buf = String::new();
+    let _ = stdin().read_line(&mut _buf);
 }

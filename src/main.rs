@@ -1,5 +1,38 @@
 use rodio::{OutputStream, Source};
 
+struct TripleOscillator {
+    oscillators: [WaveTableOscillator; 3],
+}
+
+impl TripleOscillator {
+    fn new(oscillators: [WaveTableOscillator; 3]) -> Self {
+        Self { oscillators }
+    }
+}
+
+impl Iterator for TripleOscillator {
+    type Item = f32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(self.oscillators[0].get_sample())
+    }
+}
+
+impl Source for TripleOscillator {
+    fn channels(&self) -> u16 {
+        1
+    }
+    fn sample_rate(&self) -> u32 {
+        self.oscillators[0].sample_rate
+    }
+    fn current_frame_len(&self) -> Option<usize> {
+        None
+    }
+    fn total_duration(&self) -> Option<std::time::Duration> {
+        None
+    }
+}
+
 struct WaveTableOscillator {
     sample_rate: u32,
     wave_table: Vec<f32>,
@@ -72,12 +105,20 @@ fn main() {
         wave_table.push((2.0 * std::f32::consts::PI * n as f32 / wave_table_size as f32).sin());
     }
 
-    let mut oscillator = WaveTableOscillator::new(44100, wave_table);
-    oscillator.set_frequency(440.00);
+    let mut oscillators = [
+        WaveTableOscillator::new(44100, wave_table.clone()),
+        WaveTableOscillator::new(44100, wave_table.clone()),
+        WaveTableOscillator::new(44100, wave_table.clone()),
+    ];
+
+    oscillators[0].set_frequency(220.00);
+    oscillators[1].set_frequency(440.00);
+    oscillators[2].set_frequency(110.00);
+
+    let triple_oscillator = TripleOscillator::new(oscillators);
 
     let (_stream, stream_handle) = OutputStream::try_default().unwrap();
-    let _result = stream_handle.play_raw(oscillator.convert_samples());
+    let _result = stream_handle.play_raw(triple_oscillator.convert_samples());
 
     std::thread::sleep(std::time::Duration::from_secs(5));
-    println!("Now in rust!");
 }

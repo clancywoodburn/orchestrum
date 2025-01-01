@@ -1,6 +1,6 @@
-use std::io::stdin;
-
 use rodio::{OutputStream, Source};
+use std::io::stdin;
+use std::sync::Arc;
 
 struct MultiOscillator {
     oscillators: Vec<WaveTableOscillator>,
@@ -41,13 +41,13 @@ impl Source for MultiOscillator {
 
 struct WaveTableOscillator {
     sample_rate: u32,
-    wave_table: Vec<f32>,
+    wave_table: Arc<Vec<f32>>,
     index: f32,
     index_increment: f32,
 }
 
 impl WaveTableOscillator {
-    fn new(sample_rate: u32, wave_table: Vec<f32>) -> Self {
+    fn new(sample_rate: u32, wave_table: Arc<Vec<f32>>) -> Self {
         Self {
             sample_rate,
             wave_table,
@@ -110,11 +110,12 @@ fn main() {
     for n in 0..wave_table_size {
         wave_table.push((2.0 * std::f32::consts::PI * n as f32 / wave_table_size as f32).sin());
     }
+    let wave_table_ref = Arc::new(wave_table);
 
     let mut oscillators: Vec<WaveTableOscillator> = Vec::new();
 
     for freq in [660.00, 440.00, 880.00, 220.00] {
-        let mut o = WaveTableOscillator::new(44100, wave_table.clone());
+        let mut o = WaveTableOscillator::new(44100, wave_table_ref.clone());
         o.set_frequency(freq);
         oscillators.push(o);
     }
